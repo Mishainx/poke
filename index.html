@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Pepi Poke App</title>
+  <title>Pepi Poke App - Stadium 1 y 2</title>
   <style>
+    /* Igual que antes, tu CSS */
     :root{--bg:#0f172a;--card:#0b1220;--accent:#ef4444;--muted:#94a3b8;color-scheme:dark}
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;background:linear-gradient(180deg,#071128 0%, #071228 60%);color:#e6eef8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
@@ -41,14 +42,14 @@
   <div class="app">
     <header>
       <div class="card" style="padding:12px 14px;display:flex;flex-direction:column;gap:4px;">
-        <strong style="font-size:16px">Pepi poke app</strong>
-        <span style="color:var(--muted);font-size:13px">Ingresa una palabra y te devolveré un Pokémon disponible en Stadium 2 (alea 0.22)</span>
+        <strong style="font-size:16px">Pepi poke app - Pokémon Stadium 1 y 2</strong>
+        <span style="color:var(--muted);font-size:13px">Haz click en "Buscar" o "Sorpresa" para un Pokémon aleatorio entre las generaciones 1 y 2.</span>
       </div>
     </header>
 
     <main class="card">
       <form id="searchForm">
-        <input id="query" type="text" placeholder="Ej: fuego, dormir, agua, canto..." autocomplete="off"/>
+        <input id="query" type="text" placeholder="(Opcional) Ingrese una palabra..." autocomplete="off"/>
         <button type="submit">Buscar</button>
         <button type="button" id="randomBtn" class="secondary">Sorpresa</button>
       </form>
@@ -56,104 +57,93 @@
       <div id="output" style="margin-top:12px"></div>
 
       <footer>
-        <small>Pokémon Stadium 2 incluye Pokémon de la primera y segunda generación. Si la entrada coincide lo suficiente con palabras relacionadas (similitud ≥ 0.22) se elige ese Pokémon; además hay una probabilidad de 0.22 de devolver uno aleatorio.</small>
+        <small>Pokémon Stadium 1 y 2: Pokémon con ID entre 1 y 251.</small>
       </footer>
     </main>
   </div>
 
   <script>
-    const POKEMONS = [
-      // Primera generación
-      {id:25, name:'Pikachu', keywords:['eléctrico','rayo','ratón','amarillo']},
-      {id:4, name:'Charmander', keywords:['fuego','lagarto','cola','llama']},
-      {id:1, name:'Bulbasaur', keywords:['planta','semilla','hoja','bulbo']},
-      {id:7, name:'Squirtle', keywords:['agua','tortuga','mar','caparazón']},
-      {id:39, name:'Jigglypuff', keywords:['canto','dulce','rosa','blando']},
-      {id:143, name:'Snorlax', keywords:['dormir','perezoso','comer','gigante']},
-      {id:149, name:'Dragonite', keywords:['dragón','vuelo','fuerte','amable']},
-      // Segunda generación
-      {id:152, name:'Chikorita', keywords:['planta','hoja','cuello','dulce']},
-      {id:155, name:'Cyndaquil', keywords:['fuego','ratón','espalda','llama']},
-      {id:158, name:'Totodile', keywords:['agua','cocodrilo','mordida','río']},
-      {id:172, name:'Pichu', keywords:['eléctrico','rayo','bebé','ratón']},
-      {id:196, name:'Espeon', keywords:['psíquico','evolución','sol','gato']},
-      {id:197, name:'Umbreon', keywords:['siniestro','evolución','noche','zorro']},
-      {id:212, name:'Scizor', keywords:['bicho','acero','pinza','rápido']},
-      {id:248, name:'Tyranitar', keywords:['roca','siniestro','dinosaurio','fuerte']},
-      {id:249, name:'Lugia', keywords:['psíquico','volador','mar','legendario']},
-      {id:250, name:'Ho-oh', keywords:['fuego','volador','legendario','arcoíris']}
-    ];
-
-    const ALEA_PROB = 0.22;
-    const MATCH_THRESHOLD = 0.22;
+    const ALEA_PROB = 0.22; // Factor que podés ajustar si querés
 
     const form = document.getElementById('searchForm');
     const queryInput = document.getElementById('query');
     const output = document.getElementById('output');
     const randomBtn = document.getElementById('randomBtn');
 
-    function normalize(text){
-      return text.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+    // Función para obtener un id aleatorio entre 1 y 251
+    function getRandomId() {
+      return Math.floor(Math.random() * 251) + 1;
     }
 
-    function similarity(input, keywords){
-      const inWords = new Set(input.split(/\s+|[,;.]+/).map(w=>normalize(w)).filter(Boolean));
-      if(inWords.size===0) return 0;
-      const keyWords = new Set(keywords.map(k=>normalize(k)));
-      let inter = 0;
-      for(const w of inWords) if(keyWords.has(w)) inter++;
-      const union = new Set([...inWords, ...keyWords]).size;
-      return inter/union;
-    }
-
-    function chooseByQuery(text){
-      const norm = normalize(text);
-      let best = null;
-      let bestScore = -1;
-      for(const p of POKEMONS){
-        const s = similarity(norm, p.keywords);
-        if(s>bestScore){ bestScore = s; best = p; }
+    // Función para obtener datos del Pokémon vía PokeAPI
+    async function fetchPokemon(id) {
+      try {
+        const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+        if (!res.ok) throw new Error('Pokémon no encontrado');
+        const data = await res.json();
+        return data;
+      } catch (error) {
+        console.error(error);
+        return null;
       }
-      const alea = Math.random();
-      if(alea < ALEA_PROB) return {pokemon: POKEMONS[Math.floor(Math.random()*POKEMONS.length)], method:'alea', score:bestScore};
-      if(bestScore >= MATCH_THRESHOLD){
-        return {pokemon: best, method:'match', score:bestScore};
-      }
-      return {pokemon: POKEMONS[Math.floor(Math.random()*POKEMONS.length)], method:'fallback', score:bestScore};
     }
 
-    function renderResult(res, query){
-      const {pokemon, method, score} = res;
-      const imgUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`;
+    // Renderizar resultado
+    function renderPokemon(data, query, method) {
+      if (!data) {
+        output.innerHTML = '<div class="badge">Error al cargar el Pokémon. Intenta de nuevo.</div>';
+        return;
+      }
+      const imgUrl = data.sprites.front_default || '';
       output.innerHTML = `
         <div class="result">
-          <div class="poke-img"><img src="${imgUrl}" alt="${pokemon.name}" onerror="this.style.opacity=0.35"></div>
+          <div class="poke-img"><img src="${imgUrl}" alt="${data.name}" /></div>
           <div class="meta">
-            <h2>${pokemon.name}</h2>
+            <h2>${capitalize(data.name)}</h2>
             <p>Palabra buscada: <strong>${escapeHtml(query || '')}</strong></p>
-            <div class="badge">Método: ${method === 'alea' ? 'Aleatorio (probabilidad 0.22)' : method === 'match' ? 'Relacionado (similitud alta)' : 'Aleatorio (sin coincidencias)'} — Score: ${score.toFixed(3)}</div>
-            <div style="margin-top:10px;color:var(--muted)">Palabras clave del Pokémon: ${pokemon.keywords.join(', ')}</div>
+            <div class="badge">Método: ${method}</div>
+            <p><strong>Tipos:</strong> ${data.types.map(t => capitalize(t.type.name)).join(', ')}</p>
+            <p><strong>Altura:</strong> ${data.height / 10} m</p>
+            <p><strong>Peso:</strong> ${data.weight / 10} kg</p>
           </div>
         </div>
       `;
     }
 
-    function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[c]); }
+    // Funciones auxiliares
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' })[c]);
+    }
 
-    form.addEventListener('submit', (e)=>{
+    function capitalize(s) {
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+
+    // Al hacer submit: ignoramos el texto y elegimos aleatorio con factor
+    form.addEventListener('submit', async e => {
       e.preventDefault();
-      const q = queryInput.value.trim();
-      if(!q){ output.innerHTML = '<div class="badge">Por favor ingresa una palabra o haz click en Sorpresa</div>'; return; }
-      const res = chooseByQuery(q);
-      renderResult(res, q);
+      const alea = Math.random();
+      let method;
+      let id;
+      if (alea < ALEA_PROB) {
+        method = 'Aleatorio (factor 0.22)';
+        id = getRandomId();
+      } else {
+        method = 'Aleatorio (resto)';
+        id = getRandomId();
+      }
+      const data = await fetchPokemon(id);
+      renderPokemon(data, queryInput.value.trim(), method);
     });
 
-    randomBtn.addEventListener('click', ()=>{
-      const res = {pokemon: POKEMONS[Math.floor(Math.random()*POKEMONS.length)], method:'manual-random', score:0};
-      renderResult(res, 'Sorpresa');
+    // Botón sorpresa: simplemente aleatorio
+    randomBtn.addEventListener('click', async () => {
+      const id = getRandomId();
+      const data = await fetchPokemon(id);
+      renderPokemon(data, 'Sorpresa', 'Aleatorio');
     });
 
-    queryInput.addEventListener('focus', ()=> queryInput.select());
+    queryInput.addEventListener('focus', () => queryInput.select());
   </script>
 </body>
 </html>
